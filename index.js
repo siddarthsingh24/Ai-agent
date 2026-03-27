@@ -84,79 +84,87 @@ const availableTools = {
 
 // ===== CHAT API =====
 app.post("/chat", async (req, res) => {
-  const userProblem = req.body.message;
-  let finalResponse = "";
+  try {
+    const userProblem = req.body.message;
+    console.log("📩 User:", userProblem);
 
-  History.push({
-    role: "user",
-    parts: [{ text: userProblem }],
-  });
+    let History = []; // ⚠️ make it local (IMPORTANT)
+    let finalResponse = "";
 
-  while (true) {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: History,
-      config: {
-        systemInstruction: `You are an AI Agent.
+    History.push({
+      role: "user",
+      parts: [{ text: userProblem }],
+    });
 
-IMPORTANT:
-- If user asks crypto price in ANY language (Hindi, Hinglish, etc), ALWAYS call getCryptoPrice tool.
-- Convert btc → bitcoin, eth → ethereum automatically, similarly user can use other variations.
+    let loopCount = 0; // safety
 
-Available tools:
-- sum
-- prime
-- getCryptoPrice, which gets current price of any cryptocurrency in USD. User can ask any other questions also you should try to answer them without calling the tool, but if user asks anything related to crypto price, you MUST call the getCryptoPrice tool. Always try to understand user query and call appropriate tool. similarly if the question is related to tools, call the appropriate tool. If user is asking general question, try to answer without calling tool.`,
-        tools: [
-          {
+    while (true) {
+      loopCount++;
+      if (loopCount > 5) {
+        throw new Error("Loop exceeded limit");
+      }
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: History,
+        config: {
+          systemInstruction: `You are an AI Agent.`,
+          tools: [{
             functionDeclarations: [
               sumDeclaration,
               primeDeclaration,
-              cryptoDeclaration,
+              cryptoDeclaration
             ],
-          },
-        ],
-      },
-    });
-
-    if (response.functionCalls && response.functionCalls.length > 0) {
-      console.log("Tool called:", response.functionCalls[0].name);
-      const { name, args } = response.functionCalls[0];
-
-      const tool = availableTools[name];
-      const result = await tool(args);
-
-      // Push function call
-      History.push({
-        role: "model",
-        parts: [{ functionCall: response.functionCalls[0] }],
+          }],
+        },
       });
 
-      // Push result
-      History.push({
-        role: "user",
-        parts: [
-          {
+      console.log("🤖 Response:", response.text);
+      console.log("🛠 Tool:", response.functionCalls);
+
+      if (response.functionCalls && response.functionCalls.length > 0) {
+        const { name, args } = response.functionCalls[0];
+
+        console.log("⚙️ Calling Tool:", name, args);
+
+        const tool = availableTools[name];
+        const result = await tool(args);
+
+        console.log("✅ Tool Result:", result);
+
+        History.push({
+          role: "model",
+          parts: [{ functionCall: response.functionCalls[0] }],
+        });
+
+        History.push({
+          role: "user",
+          parts: [{
             functionResponse: {
               name,
               response: { result },
             },
-          },
-        ],
-      });
-    } else {
-      finalResponse = response.text;
+          }],
+        });
 
-      History.push({
-        role: "model",
-        parts: [{ text: response.text }],
-      });
+      } else {
+        finalResponse = response.text;
 
-      break;
+        History.push({
+          role: "model",
+          parts: [{ text: response.text }],
+        });
+
+        break;
+      }
     }
-  }
 
-  res.json({ reply: finalResponse });
+    res.json({ reply: finalResponse });
+
+  } catch (err) {
+    console.error("❌ ERROR:", err);
+    res.status(500).json({ reply: "Server error, check logs" });
+  }
 });
 
 const PORT = process.env.PORT || 3000;

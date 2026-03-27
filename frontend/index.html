@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Agent</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .header {
+      padding: 15px;
+      background: #1e293b;
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .chat-container {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .message {
+      margin: 10px 0;
+      padding: 12px 15px;
+      border-radius: 10px;
+      max-width: 70%;
+    }
+
+    .user {
+      background: #2563eb;
+      align-self: flex-end;
+      margin-left: auto;
+    }
+
+    .bot {
+      background: #334155;
+      align-self: flex-start;
+    }
+
+    .input-container {
+      display: flex;
+      padding: 10px;
+      background: #1e293b;
+    }
+
+    input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      outline: none;
+      font-size: 16px;
+    }
+
+    button {
+      margin-left: 10px;
+      padding: 10px 20px;
+      background: #22c55e;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #16a34a;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">🤖 AI Agent</div>
+
+  <div class="chat-container" id="chat"></div>
+
+  <div class="input-container">
+    <input id="input" placeholder="Ask something..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+
+<script>
+async function sendMessage() {
+  const input = document.getElementById("input");
+  const chat = document.getElementById("chat");
+
+  const text = input.value.trim();
+  if (!text) return;
+
+  // Add user message
+  const userMsg = document.createElement("div");
+  userMsg.className = "message user";
+  userMsg.innerText = text;
+  chat.appendChild(userMsg);
+
+  input.value = "";
+
+  // Call backend
+  const res = await fetch("http://localhost:3000/chat", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ message: text })
+  });
+
+  const data = await res.json();
+
+  // Add bot message
+  const botMsg = document.createElement("div");
+  botMsg.className = "message bot";
+  botMsg.innerText = data.reply;
+  chat.appendChild(botMsg);
+
+  chat.scrollTop = chat.scrollHeight;
+}
+</script>
+
+</body>
+</html>
